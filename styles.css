@@ -1134,8 +1134,21 @@ label textarea {
   z-index: 1;
 }
 
+.session-foto:not(.hidden) {
+  display: block;
+}
+
+.session-avatar #session-iniciales {
+  position: relative;
+  z-index: 0;
+}
+
 .session-online {
   z-index: 2;
+}
+
+.perfil-foto:not(.hidden) {
+  display: block;
 }
 
 .perfil-layout {

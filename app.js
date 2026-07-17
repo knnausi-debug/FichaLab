@@ -19,25 +19,39 @@
 
   function setFoto(imgEl, inicialesEl, fotoUrl, iniciales) {
     const showIniciales = () => {
+      imgEl.onload = null;
+      imgEl.onerror = null;
       imgEl.removeAttribute("src");
       imgEl.classList.add("hidden");
       inicialesEl.classList.remove("hidden");
       inicialesEl.textContent = iniciales || "?";
     };
 
-    imgEl.onload = () => {
+    const showFoto = () => {
       imgEl.classList.remove("hidden");
       inicialesEl.classList.add("hidden");
     };
-    imgEl.onerror = () => showIniciales();
 
     if (!fotoUrl || fotoUrl.startsWith("/uploads/")) {
-      // Rutas viejas en disco de Railway suelen romperse tras un redeploy
       showIniciales();
       return;
     }
 
-    imgEl.src = assetUrl(fotoUrl);
+    imgEl.onload = showFoto;
+    imgEl.onerror = showIniciales;
+
+    const src = assetUrl(fotoUrl);
+    // Evitar que quede en .hidden si el data-URL carga síncrono (común en móvil)
+    if (imgEl.src === src && imgEl.complete && imgEl.naturalWidth > 0) {
+      showFoto();
+      return;
+    }
+
+    imgEl.src = src;
+
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+      showFoto();
+    }
   }
   async function api(path, options = {}) {
     const headers = {
