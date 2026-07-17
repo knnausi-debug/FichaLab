@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1f7a65" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>FichaLab — Kinesiología</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- AUTH -->
+  <div id="auth-screen" class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <p class="brand-name">FichaLab</p>
+          <p class="brand-sub">Consulta clínica</p>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" data-auth="login">Iniciar sesión</button>
+        <button type="button" class="auth-tab" data-auth="register">Registrarse</button>
+      </div>
+
+      <form id="form-login" class="auth-form">
+        <label>Email
+          <input type="email" id="login-email" required placeholder="tu@correo.cl" autocomplete="username" />
+        </label>
+        <label>Contraseña
+          <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password" />
+        </label>
+        <p class="auth-error" id="login-error" hidden></p>
+        <button type="submit" class="btn primary auth-submit">Entrar</button>
+        <p class="auth-hint">Demo: vadhyr.cabezas@fichalab.cl / vadhyr123</p>
+      </form>
+
+      <form id="form-register" class="auth-form hidden">
+        <label>Nombre completo
+          <input type="text" id="reg-nombre" required placeholder="Ej. Vadhyr Alejandro Cabezas" />
+        </label>
+        <label>Profesión
+          <input type="text" id="reg-profesion" required placeholder="Ej. Kinesiólogo" value="Kinesiólogo" />
+        </label>
+        <label>Teléfono
+          <input type="tel" id="reg-telefono" placeholder="+56 9 1234 5678" />
+        </label>
+        <label>Email
+          <input type="email" id="reg-email" required placeholder="tu@correo.cl" autocomplete="email" />
+        </label>
+        <label>Contraseña
+          <input type="password" id="reg-password" required minlength="6" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+        </label>
+        <label>Foto de perfil (opcional)
+          <input type="file" id="reg-foto" accept="image/*" />
+        </label>
+        <p class="auth-error" id="register-error" hidden></p>
+        <button type="submit" class="btn primary auth-submit">Crear cuenta</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app-shell" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <p class="brand-name">FichaLab</p>
+          <p class="brand-sub">Consulta clínica</p>
+        </div>
+      </div>
+      <nav class="nav" aria-label="Principal">
+        <button class="nav-btn active" data-view="inicio" type="button">
+          <span class="nav-icon" aria-hidden="true">⌂</span>
+          <span class="nav-label">Inicio</span>
+        </button>
+        <button class="nav-btn" data-view="fichas" type="button">
+          <span class="nav-icon" aria-hidden="true">☰</span>
+          <span class="nav-label">Fichas</span>
+        </button>
+        <button class="nav-btn" data-view="agenda" type="button">
+          <span class="nav-icon" aria-hidden="true">◷</span>
+          <span class="nav-label">Agenda</span>
+        </button>
+        <button class="nav-btn" data-view="perfil" type="button">
+          <span class="nav-icon" aria-hidden="true">◉</span>
+          <span class="nav-label">Perfil</span>
+        </button>
+      </nav>
+
+      <div class="session" id="session-card">
+        <div class="session-row">
+          <div class="session-avatar" id="session-avatar" aria-hidden="true">
+            <span id="session-iniciales">?</span>
+            <img id="session-foto" class="session-foto hidden" alt="" />
+            <span class="session-online" title="En línea"></span>
+          </div>
+          <div class="session-info">
+            <p class="session-name" id="session-name">Usuario</p>
+            <p class="session-role" id="session-role">Profesión</p>
+          </div>
+        </div>
+        <button type="button" class="session-out" id="btn-cerrar-sesion">
+          Cerrar sesión
+        </button>
+      </div>
+      <p class="sidebar-foot">Neon PostgreSQL · API local</p>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <p class="topbar-session" id="topbar-session">Sesión iniciada</p>
+      </div>
+
+      <!-- INICIO -->
+      <section id="view-inicio" class="view active">
+        <header class="view-header">
+          <p class="greeting" id="greeting">Bienvenido</p>
+          <h1>Hoy en consulta</h1>
+          <p class="lede" id="inicio-lede">Resumen de tu agenda y pacientes.</p>
+        </header>
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-value" id="stat-pacientes">0</span>
+            <span class="stat-label">Pacientes</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="stat-hoy">0</span>
+            <span class="stat-label">Citas hoy</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="stat-semana">0</span>
+            <span class="stat-label">Esta semana</span>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Próximas citas</h2>
+          <ul id="proximas-citas" class="list"></ul>
+        </div>
+      </section>
+
+      <!-- FICHAS -->
+      <section id="view-fichas" class="view">
+        <header class="view-header row">
+          <div>
+            <h1>Fichas médicas</h1>
+            <p class="lede">Historial clínico de tus pacientes.</p>
+          </div>
+          <button class="btn primary" id="btn-nueva-ficha" type="button">Nueva ficha</button>
+        </header>
+        <div class="toolbar">
+          <input type="search" id="buscar-ficha" placeholder="Buscar por nombre o RUT…" autocomplete="off" />
+          <select id="filtro-estado-ficha" aria-label="Filtrar por estado">
+            <option value="">Todos los estados</option>
+            <option value="Pendiente">Pendientes</option>
+            <option value="Confirmada">Confirmadas</option>
+            <option value="Cancelada">Canceladas</option>
+          </select>
+        </div>
+        <div id="lista-fichas" class="fichas-grid"></div>
+      </section>
+
+      <!-- AGENDA -->
+      <section id="view-agenda" class="view">
+        <header class="view-header row">
+          <div>
+            <h1>Agenda</h1>
+            <p class="lede">Citas de evaluación y tratamiento.</p>
+          </div>
+          <button class="btn primary" id="btn-nueva-cita" type="button">Nueva cita</button>
+        </header>
+        <div class="toolbar">
+          <input type="date" id="filtro-fecha" />
+          <button class="btn ghost" id="btn-ver-todas" type="button">Ver todas</button>
+        </div>
+        <ul id="lista-citas" class="list citas-list"></ul>
+      </section>
+
+      <!-- PERFIL -->
+      <section id="view-perfil" class="view">
+        <header class="view-header">
+          <h1>Mi perfil</h1>
+          <p class="lede">Tus datos profesionales y foto de sesión.</p>
+        </header>
+
+        <div class="perfil-layout">
+          <div class="perfil-photo-panel">
+            <div class="perfil-preview" id="perfil-preview">
+              <span id="perfil-iniciales">?</span>
+              <img id="perfil-foto" class="perfil-foto hidden" alt="Foto de perfil" />
+            </div>
+            <label class="btn ghost perfil-upload-btn">
+              Cambiar foto
+              <input type="file" id="perfil-foto-input" accept="image/*" hidden />
+            </label>
+            <p class="perfil-photo-hint">JPG o PNG · máx. 3 MB</p>
+          </div>
+
+          <form id="form-perfil" class="perfil-form panel">
+            <label>Nombre completo
+              <input type="text" id="perfil-nombre" required />
+            </label>
+            <label>Profesión
+              <input type="text" id="perfil-profesion" required placeholder="Kinesiólogo" />
+            </label>
+            <div class="form-row">
+              <label>Email
+                <input type="email" id="perfil-email" required />
+              </label>
+              <label>Teléfono
+                <input type="tel" id="perfil-telefono" />
+              </label>
+            </div>
+            <label>Nueva contraseña <span class="optional">(opcional)</span>
+              <input type="password" id="perfil-password" minlength="6" placeholder="Dejar vacío para no cambiar" autocomplete="new-password" />
+            </label>
+            <p class="auth-error" id="perfil-error" hidden></p>
+            <p class="auth-ok" id="perfil-ok" hidden>Perfil actualizado</p>
+            <div class="perfil-actions">
+              <button type="submit" class="btn primary">Guardar cambios</button>
+              <button type="button" class="btn ghost" id="btn-cerrar-sesion-perfil">Cerrar sesión</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal Ficha -->
+  <dialog id="modal-ficha" class="modal">
+    <form method="dialog" id="form-ficha">
+      <header class="modal-header">
+        <h2 id="modal-ficha-titulo">Nueva ficha</h2>
+        <button type="button" class="btn icon" data-close="modal-ficha" aria-label="Cerrar">×</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="ficha-id" />
+        <label>Nombre completo
+          <input type="text" id="ficha-nombre" required placeholder="Ej. María González" />
+        </label>
+        <div class="form-row">
+          <label>RUT / ID
+            <input type="text" id="ficha-rut" required placeholder="12.345.678-9" />
+          </label>
+          <label>Edad
+            <input type="number" id="ficha-edad" min="0" max="120" placeholder="35" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Teléfono
+            <input type="tel" id="ficha-telefono" placeholder="+56 9 1234 5678" />
+          </label>
+          <label>Email
+            <input type="email" id="ficha-email" placeholder="correo@ejemplo.cl" />
+          </label>
+        </div>
+        <label>Diagnóstico / motivo de consulta
+          <input type="text" id="ficha-diagnostico" placeholder="Ej. Lumbalgia mecánica" />
+        </label>
+        <label>Evaluación inicial
+          <textarea id="ficha-evaluacion" rows="3" placeholder="Anamnesis, pruebas, hallazgos…"></textarea>
+        </label>
+        <label>Plan de tratamiento
+          <textarea id="ficha-plan" rows="3" placeholder="Objetivos, técnicas, frecuencia…"></textarea>
+        </label>
+        <label>Notas de evolución
+          <textarea id="ficha-notas" rows="3" placeholder="Seguimiento de sesiones…"></textarea>
+        </label>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn ghost" data-close="modal-ficha">Cancelar</button>
+        <button type="submit" class="btn primary">Guardar ficha</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Modal Cita -->
+  <dialog id="modal-cita" class="modal">
+    <form method="dialog" id="form-cita">
+      <header class="modal-header">
+        <h2 id="modal-cita-titulo">Nueva cita</h2>
+        <button type="button" class="btn icon" data-close="modal-cita" aria-label="Cerrar">×</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="cita-id" />
+        <label>Paciente
+          <select id="cita-paciente" required>
+            <option value="">Seleccionar paciente…</option>
+          </select>
+        </label>
+        <div class="form-row">
+          <label>Fecha
+            <input type="date" id="cita-fecha" required />
+          </label>
+          <label>Hora
+            <input type="time" id="cita-hora" required />
+          </label>
+        </div>
+        <label>Tipo de sesión
+          <select id="cita-tipo">
+            <option value="Evaluación">Evaluación</option>
+            <option value="Tratamiento">Tratamiento</option>
+            <option value="Control">Control</option>
+            <option value="Reevaluación">Reevaluación</option>
+          </select>
+        </label>
+        <label>Estado
+          <select id="cita-estado">
+            <option value="Programada">Programada</option>
+            <option value="Confirmada">Confirmada</option>
+            <option value="Atendida">Atendida</option>
+            <option value="Cancelada">Cancelada</option>
+          </select>
+        </label>
+        <label>Observaciones
+          <textarea id="cita-obs" rows="2" placeholder="Indicaciones o recordatorios…"></textarea>
+        </label>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn ghost" data-close="modal-cita">Cancelar</button>
+        <button type="submit" class="btn primary">Guardar cita</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Modal detalle ficha -->
+  <dialog id="modal-detalle" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h2 id="detalle-nombre">Paciente</h2>
+        <button type="button" class="btn icon" data-close="modal-detalle" aria-label="Cerrar">×</button>
+      </header>
+      <div class="modal-body" id="detalle-contenido"></div>
+      <footer class="modal-footer">
+        <button type="button" class="btn danger" id="btn-eliminar-ficha">Eliminar</button>
+        <button type="button" class="btn ghost" id="btn-cancelar-ficha">Cancelar ficha</button>
+        <button type="button" class="btn ghost" data-close="modal-detalle">Cerrar</button>
+        <button type="button" class="btn primary" id="btn-confirmar-ficha">Confirmar</button>
+        <button type="button" class="btn primary" id="btn-editar-ficha">Editar</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
