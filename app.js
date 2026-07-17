@@ -627,17 +627,43 @@
     return y;
   }
 
-  function descargarPdfPaciente(id) {
+  function cargarJsPdf() {
+    if (window.jspdf?.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-fichalab-jspdf]');
+      if (existing) {
+        existing.addEventListener("load", () => {
+          if (window.jspdf?.jsPDF) resolve(window.jspdf.jsPDF);
+          else reject(new Error("PDF no disponible"));
+        });
+        existing.addEventListener("error", () => reject(new Error("PDF no disponible")));
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "vendor/jspdf.umd.min.js";
+      script.dataset.fichalabJspdf = "1";
+      script.onload = () => {
+        if (window.jspdf?.jsPDF) resolve(window.jspdf.jsPDF);
+        else reject(new Error("PDF no disponible"));
+      };
+      script.onerror = () => reject(new Error("PDF no disponible"));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function descargarPdfPaciente(id) {
     const ficha = getFicha(id || detalleFichaId);
     if (!ficha) return;
 
-    if (typeof window.jspdf === "undefined" || !window.jspdf.jsPDF) {
-      alert("No se pudo cargar la librería de PDF. Revisa tu conexión.");
+    let JsPDF;
+    try {
+      JsPDF = await cargarJsPdf();
+    } catch {
+      alert("No se pudo cargar la librería de PDF. Recarga la página e inténtalo de nuevo.");
       return;
     }
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const doc = new JsPDF({ unit: "mm", format: "a4" });
     const margin = 18;
     const maxW = doc.internal.pageSize.getWidth() - margin * 2;
     let y = 18;
