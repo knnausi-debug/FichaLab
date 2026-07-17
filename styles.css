@@ -1224,3 +1224,33 @@ label textarea {
 .perfil-actions .btn {
   align-self: auto;
 }
+
+@media (max-width: 860px) {
+  .perfil-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .perfil-photo-panel {
+    width: 100%;
+  }
+
+  .perfil-form.panel {
+    width: 100%;
+  }
+
+  .perfil-form .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .perfil-actions {
+    flex-direction: column;
+  }
+
+  .perfil-form .btn,
+  .perfil-upload-btn,
+  .perfil-actions .btn {
+    width: 100%;
+  }
+}
