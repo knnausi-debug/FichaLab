@@ -643,6 +643,11 @@ textarea {
   padding: 0;
   max-width: 520px;
   width: calc(100% - 2rem);
+  max-height: calc(100dvh - 2rem);
+  height: fit-content;
+  margin: auto;
+  position: fixed;
+  inset: 0;
   box-shadow: 0 24px 60px rgba(20, 50, 42, 0.2);
   background: var(--surface-solid);
 }
@@ -660,6 +665,7 @@ textarea {
 .modal-inner {
   display: flex;
   flex-direction: column;
+  max-height: calc(100dvh - 2rem);
 }
 
 .modal-header {
@@ -768,8 +774,8 @@ label textarea {
 }
 
 @keyframes modalIn {
-  from { opacity: 0; transform: scale(0.96) translateY(8px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 /* —— Notebook / tablet landscape —— */
@@ -992,6 +998,7 @@ label textarea {
     max-width: none;
     max-height: calc(100dvh - 1.5rem);
     margin: auto;
+    inset: 0;
     border-radius: 16px;
   }
 
