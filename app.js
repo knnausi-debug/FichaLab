@@ -1,5 +1,6 @@
 (() => {
-  const API = "/api";
+  const API_BASE = String(window.FICHALAB_API_BASE || "").replace(/\/$/, "");
+  const API = API_BASE ? `${API_BASE}/api` : "/api";
   const SESSION_KEY = "fichalab_user_id";
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -10,6 +11,12 @@
   let citas = [];
   let detalleFichaId = null;
 
+  function assetUrl(path) {
+    if (!path) return "";
+    if (/^https?:\/\//i.test(path)) return path;
+    return `${API_BASE}${path}`;
+  }
+
   async function api(path, options = {}) {
     const headers = {
       "Content-Type": "application/json",
@@ -18,11 +25,25 @@
     const userId = usuario?.id || localStorage.getItem(SESSION_KEY);
     if (userId) headers["X-User-Id"] = userId;
 
-    const res = await fetch(`${API}${path}`, {
-      ...options,
-      headers,
-    });
+    let res;
+    try {
+      res = await fetch(`${API}${path}`, {
+        ...options,
+        headers,
+      });
+    } catch {
+      throw new Error(
+        API_BASE
+          ? "No se pudo conectar con la API. Revisa config.js (FICHALAB_API_BASE)."
+          : "No se pudo conectar con la API. En Netlify debes configurar la URL del backend en config.js."
+      );
+    }
     if (res.status === 204) return null;
+    if (res.status === 404) {
+      throw new Error(
+        "API no encontrada (404). Netlify no ejecuta el servidor Node: despliega el backend y pon su URL en config.js."
+      );
+    }
     const data = await res.json().catch(() => ({}));
     if (res.status === 401) {
       cerrarSesion();
@@ -37,11 +58,16 @@
     const userId = usuario?.id || localStorage.getItem(SESSION_KEY);
     if (userId) headers["X-User-Id"] = userId;
 
-    const res = await fetch(`${API}${path}`, {
-      method: "POST",
-      headers,
-      body: formData,
-    });
+    let res;
+    try {
+      res = await fetch(`${API}${path}`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+    } catch {
+      throw new Error("No se pudo subir el archivo. Revisa la URL de la API en config.js.");
+    }
     const data = await res.json().catch(() => ({}));
     if (res.status === 401) {
       cerrarSesion();
@@ -72,7 +98,7 @@
 
   function setFoto(imgEl, inicialesEl, fotoUrl, iniciales) {
     if (fotoUrl) {
-      imgEl.src = `${fotoUrl}?t=${Date.now()}`;
+      imgEl.src = `${assetUrl(fotoUrl)}?t=${Date.now()}`;
       imgEl.classList.remove("hidden");
       inicialesEl.classList.add("hidden");
     } else {

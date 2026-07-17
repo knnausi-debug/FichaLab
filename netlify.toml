@@ -1,0 +1,12 @@
+# Netlify solo sirve el frontend estático.
+# El login y las fichas necesitan el backend Node en otro servicio (Render, Railway, etc.).
+# Configura la URL en config.js → FICHALAB_API_BASE
+
+[build]
+  publish = "."
+  command = "echo 'Static publish — API va en Render/Railway'"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"

@@ -32,7 +32,13 @@ const upload = multer({
   },
 });
 
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
+      : true,
+  })
+);
 app.use(express.json());
 app.use("/uploads", express.static(uploadsDir));
 app.use(express.static(path.join(__dirname)));
