@@ -13,20 +13,12 @@ const PORT = process.env.PORT || 3000;
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
-    cb(null, `user-${Date.now()}${ext}`);
-  },
-});
-
 const upload = multer({
-  storage,
-  limits: { fileSize: 3 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1.5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (!file.mimetype.startsWith("image/")) {
-      return cb(new Error("Solo se permiten imágenes"));
+    if (!/^image\/(jpeg|jpg|png|webp|gif)$/i.test(file.mimetype)) {
+      return cb(new Error("Usa una imagen JPG, PNG o WEBP"));
     }
     cb(null, true);
   },
@@ -281,19 +273,8 @@ app.post("/api/usuarios/:id/foto", requireAuth, upload.single("foto"), async (re
     }
     if (!req.file) return res.status(400).json({ error: "No se recibió ninguna foto" });
 
-    const fotoUrl = `/uploads/${req.file.filename}`;
-
-    const prev = await query("SELECT foto_url FROM usuarios WHERE id = $1", [req.params.id]);
-    if (!prev.rows[0]) {
-      fs.unlink(req.file.path, () => {});
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-
-    const old = prev.rows[0].foto_url;
-    if (old && old.startsWith("/uploads/")) {
-      const oldPath = path.join(__dirname, old);
-      fs.unlink(oldPath, () => {});
-    }
+    // Guardar en Neon (data URL) para que no se pierda al redeploy de Railway
+    const fotoUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
 
     const { rows } = await query(
       `UPDATE usuarios SET foto_url = $1
@@ -301,6 +282,7 @@ app.post("/api/usuarios/:id/foto", requireAuth, upload.single("foto"), async (re
        RETURNING id, nombre, email, profesion, telefono, foto_url, creado`,
       [fotoUrl, req.params.id]
     );
+    if (!rows[0]) return res.status(404).json({ error: "Usuario no encontrado" });
 
     const user = mapUsuario(rows[0]);
     user.iniciales = iniciales(user.nombre);

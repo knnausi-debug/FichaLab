@@ -13,10 +13,32 @@
 
   function assetUrl(path) {
     if (!path) return "";
-    if (/^https?:\/\//i.test(path)) return path;
+    if (/^https?:\/\//i.test(path) || path.startsWith("data:")) return path;
     return `${API_BASE}${path}`;
   }
 
+  function setFoto(imgEl, inicialesEl, fotoUrl, iniciales) {
+    const showIniciales = () => {
+      imgEl.removeAttribute("src");
+      imgEl.classList.add("hidden");
+      inicialesEl.classList.remove("hidden");
+      inicialesEl.textContent = iniciales || "?";
+    };
+
+    imgEl.onload = () => {
+      imgEl.classList.remove("hidden");
+      inicialesEl.classList.add("hidden");
+    };
+    imgEl.onerror = () => showIniciales();
+
+    if (!fotoUrl || fotoUrl.startsWith("/uploads/")) {
+      // Rutas viejas en disco de Railway suelen romperse tras un redeploy
+      showIniciales();
+      return;
+    }
+
+    imgEl.src = assetUrl(fotoUrl);
+  }
   async function api(path, options = {}) {
     const headers = {
       "Content-Type": "application/json",
@@ -94,19 +116,6 @@
     if (h < 12) return "Buenos días";
     if (h < 19) return "Buenas tardes";
     return "Buenas noches";
-  }
-
-  function setFoto(imgEl, inicialesEl, fotoUrl, iniciales) {
-    if (fotoUrl) {
-      imgEl.src = `${assetUrl(fotoUrl)}?t=${Date.now()}`;
-      imgEl.classList.remove("hidden");
-      inicialesEl.classList.add("hidden");
-    } else {
-      imgEl.removeAttribute("src");
-      imgEl.classList.add("hidden");
-      inicialesEl.classList.remove("hidden");
-      inicialesEl.textContent = iniciales || "?";
-    }
   }
 
   function renderSesion() {
