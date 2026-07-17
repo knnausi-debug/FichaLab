@@ -1,10 +1,40 @@
 (() => {
-  const API_BASE = String(window.FICHALAB_API_BASE || "").replace(/\/$/, "");
+  const isLocalhost =
+    location.hostname === "localhost" ||
+    location.hostname === "127.0.0.1" ||
+    location.hostname === "[::1]";
+
+  // En local siempre API del mismo origen; en Netlify usa Railway
+  const API_BASE = isLocalhost
+    ? ""
+    : String(window.FICHALAB_API_BASE || "").replace(/\/$/, "");
   const API = API_BASE ? `${API_BASE}/api` : "/api";
   const SESSION_KEY = "fichalab_user_id";
+  const THEME_KEY = "fichalab_theme";
+  const THEMES = ["verde", "rosado", "amarillo", "celeste"];
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+  function applyTheme(theme) {
+    const t = THEMES.includes(theme) ? theme : "verde";
+    document.documentElement.setAttribute("data-theme", t);
+    localStorage.setItem(THEME_KEY, t);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      const color = getComputedStyle(document.documentElement)
+        .getPropertyValue("--theme-color")
+        .trim();
+      if (color) meta.setAttribute("content", color);
+    }
+    $$('input[name="tema-color"]').forEach((input) => {
+      input.checked = input.value === t;
+    });
+  }
+
+  function initTheme() {
+    applyTheme(localStorage.getItem(THEME_KEY) || "verde");
+  }
 
   let usuario = null;
   let fichas = [];
@@ -125,6 +155,19 @@
     return parts.length >= 3 ? parts[parts.length - 2] : parts[parts.length - 1];
   }
 
+  function renderEntorno() {
+    const badge = $("#env-badge");
+    if (!badge) return;
+    if (isLocalhost) {
+      badge.classList.remove("hidden");
+      badge.textContent = "Versión en prueba · localhost";
+      const foot = $(".sidebar-foot");
+      if (foot) foot.textContent = "Entorno local · cambios aún no en producción";
+    } else {
+      badge.classList.add("hidden");
+    }
+  }
+
   function saludoHora() {
     const h = new Date().getHours();
     if (h < 12) return "Buenos días";
@@ -168,6 +211,7 @@
   function showApp() {
     $("#auth-screen").classList.add("hidden");
     $("#app-shell").classList.remove("hidden");
+    renderEntorno();
   }
 
   function guardarSesion(user) {
@@ -437,9 +481,261 @@
     $("#modal-ficha-titulo").textContent = "Editar ficha";
   }
 
+  function csvCell(value) {
+    const s = value == null ? "" : String(value);
+    return `"${s.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+  }
+
+  function parseCsvLine(line) {
+    const cells = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else if (ch === '"') {
+          inQuotes = false;
+        } else {
+          cur += ch;
+        }
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ";") {
+        cells.push(cur.trim());
+        cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    cells.push(cur.trim());
+    return cells;
+  }
+
+  function normalizeHeader(h) {
+    return String(h || "")
+      .replace(/^\uFEFF/, "")
+      .trim()
+      .toLowerCase();
+  }
+
+  function normalizeRut(rut) {
+    return String(rut || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\./g, "")
+      .replace(/\s/g, "");
+  }
+
+  function fichasParaExcel() {
+    return fichas.map((f) => ({
+      Nombre: f.nombre || "",
+      RUT: f.rut || "",
+      Edad: f.edad ?? "",
+      Teléfono: f.telefono || "",
+      Email: f.email || "",
+      Diagnóstico: f.diagnostico || "",
+      Evaluación: f.evaluacion || "",
+      Plan: f.plan || "",
+      Notas: f.notas || "",
+      Creada: f.creada ? new Date(f.creada).toLocaleString("es-CL") : "",
+    }));
+  }
+
+  function exportarFichasExcel() {
+    if (!fichas.length) {
+      alert("No hay fichas para exportar.");
+      return;
+    }
+    if (typeof XLSX === "undefined") {
+      alert("No se pudo cargar la librería de Excel. Revisa tu conexión.");
+      return;
+    }
+
+    const rows = fichasParaExcel();
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Anchos de columna para que se vea como tabla ordenada
+    ws["!cols"] = [
+      { wch: 28 },
+      { wch: 14 },
+      { wch: 8 },
+      { wch: 16 },
+      { wch: 26 },
+      { wch: 32 },
+      { wch: 36 },
+      { wch: 32 },
+      { wch: 28 },
+      { wch: 20 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Fichas");
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `fichas-${stamp}.xlsx`);
+  }
+
+  function filaDesdeObjeto(obj) {
+    const map = {};
+    Object.keys(obj || {}).forEach((k) => {
+      map[normalizeHeader(k)] = obj[k];
+    });
+    const get = (...keys) => {
+      for (const k of keys) {
+        if (map[k] != null && String(map[k]).trim() !== "") return String(map[k]).trim();
+      }
+      return "";
+    };
+    return {
+      nombre: get("nombre"),
+      rut: get("rut"),
+      edad: get("edad"),
+      telefono: get("teléfono", "telefono"),
+      email: get("email"),
+      diagnostico: get("diagnóstico", "diagnostico"),
+      evaluacion: get("evaluación", "evaluacion"),
+      plan: get("plan"),
+      notas: get("notas"),
+    };
+  }
+
+  async function leerFilasExcel(file) {
+    const name = (file.name || "").toLowerCase();
+
+    // CSV / export antiguo (.xls como texto con ;)
+    if (name.endsWith(".csv")) {
+      const text = await file.text();
+      const rawLines = text
+        .replace(/^\uFEFF/, "")
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (rawLines.length < 2) return [];
+      const headers = parseCsvLine(rawLines[0]);
+      return rawLines.slice(1).map((line) => {
+        const cols = parseCsvLine(line);
+        const obj = {};
+        headers.forEach((h, i) => {
+          obj[h] = cols[i] || "";
+        });
+        return filaDesdeObjeto(obj);
+      });
+    }
+
+    if (typeof XLSX === "undefined") {
+      throw new Error("No se pudo cargar la librería de Excel.");
+    }
+
+    // .xlsx real (y .xls antiguos binarios si aplica)
+    const data = await file.arrayBuffer();
+    // Si es texto CSV renombrado a .xls, SheetJS puede fallar: intentar CSV
+    const asText = new TextDecoder("utf-8").decode(data.slice(0, 200));
+    if (asText.includes("Nombre") && asText.includes(";")) {
+      const text = new TextDecoder("utf-8").decode(data);
+      const rawLines = text
+        .replace(/^\uFEFF/, "")
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (rawLines.length < 2) return [];
+      const headers = parseCsvLine(rawLines[0]);
+      return rawLines.slice(1).map((line) => {
+        const cols = parseCsvLine(line);
+        const obj = {};
+        headers.forEach((h, i) => {
+          obj[h] = cols[i] || "";
+        });
+        return filaDesdeObjeto(obj);
+      });
+    }
+
+    const wb = XLSX.read(data, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    return json.map(filaDesdeObjeto);
+  }
+
+  async function importarFichasDesdeArchivo(file) {
+    const filas = await leerFilasExcel(file);
+    if (!filas.length) {
+      alert("El archivo no tiene fichas para importar.");
+      return;
+    }
+
+    const existentes = new Set(fichas.map((f) => normalizeRut(f.rut)));
+    let creadas = 0;
+    let omitidas = 0;
+    let errores = 0;
+
+    for (const fila of filas) {
+      const nombre = (fila.nombre || "").trim();
+      const rut = (fila.rut || "").trim();
+      if (!nombre || !rut) {
+        omitidas++;
+        continue;
+      }
+
+      const rutKey = normalizeRut(rut);
+      if (existentes.has(rutKey)) {
+        omitidas++;
+        continue;
+      }
+
+      const edad =
+        fila.edad && !Number.isNaN(Number(fila.edad)) ? Number(fila.edad) : null;
+
+      try {
+        await api("/fichas", {
+          method: "POST",
+          body: JSON.stringify({
+            nombre,
+            rut,
+            edad,
+            telefono: fila.telefono || "",
+            email: fila.email || "",
+            diagnostico: fila.diagnostico || "",
+            evaluacion: fila.evaluacion || "",
+            plan: fila.plan || "",
+            notas: fila.notas || "",
+          }),
+        });
+        existentes.add(rutKey);
+        creadas++;
+      } catch {
+        errores++;
+      }
+    }
+
+    await refresh();
+    alert(
+      `Importación lista.\n\nNuevas: ${creadas}\nOmitidas (ya existían o vacías): ${omitidas}\nErrores: ${errores}`
+    );
+  }
+
   $("#btn-nueva-ficha").addEventListener("click", () => {
     resetFormFicha();
     openModal("modal-ficha");
+  });
+
+  $("#btn-exportar-fichas").addEventListener("click", () => {
+    exportarFichasExcel();
+  });
+
+  $("#btn-importar-fichas").addEventListener("click", () => {
+    $("#input-importar-fichas").click();
+  });
+
+  $("#input-importar-fichas").addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      await importarFichasDesdeArchivo(file);
+    } catch (err) {
+      alert(err.message || "No se pudo importar el archivo.");
+    }
   });
 
   $("#btn-editar-ficha").addEventListener("click", () => {
@@ -726,6 +1022,8 @@
   });
 
   async function boot() {
+    initTheme();
+    renderEntorno();
     const savedId = localStorage.getItem(SESSION_KEY);
     if (savedId) {
       try {
@@ -739,6 +1037,12 @@
     }
     showAuth();
   }
+
+  $$('input[name="tema-color"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      if (input.checked) applyTheme(input.value);
+    });
+  });
 
   boot();
 })();

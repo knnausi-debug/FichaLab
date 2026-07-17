@@ -6,6 +6,12 @@
   <meta name="theme-color" content="#1f7a65" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <script>
+    (function () {
+      var t = localStorage.getItem("fichalab_theme") || "verde";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
   <title>FichaLab — Kinesiología</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -111,6 +117,7 @@
         </button>
       </div>
       <p class="sidebar-foot">Neon PostgreSQL · API local</p>
+      <p class="env-badge hidden" id="env-badge" aria-live="polite">Versión en prueba</p>
     </aside>
 
     <main class="main">
@@ -152,7 +159,12 @@
             <h1>Fichas médicas</h1>
             <p class="lede">Historial clínico de tus pacientes.</p>
           </div>
-          <button class="btn primary" id="btn-nueva-ficha" type="button">Nueva ficha</button>
+          <div class="header-actions">
+            <button class="btn primary" id="btn-exportar-fichas" type="button">Exportar Excel</button>
+            <button class="btn primary" id="btn-importar-fichas" type="button">Importar Excel</button>
+            <input type="file" id="input-importar-fichas" accept=".xlsx,.xls,.csv,text/csv" hidden />
+            <button class="btn primary" id="btn-nueva-ficha" type="button">Nueva ficha</button>
+          </div>
         </header>
         <div class="toolbar">
           <input type="search" id="buscar-ficha" placeholder="Buscar por nombre o RUT…" autocomplete="off" />
@@ -214,6 +226,34 @@
             <label>Nueva contraseña <span class="optional">(opcional)</span>
               <input type="password" id="perfil-password" minlength="6" placeholder="Dejar vacío para no cambiar" autocomplete="new-password" />
             </label>
+
+            <fieldset class="theme-picker">
+              <legend>Tema de color</legend>
+              <p class="theme-picker-hint">Misma intensidad y contraste; solo cambia el color base.</p>
+              <div class="theme-options" role="radiogroup" aria-label="Tema de color">
+                <label class="theme-option">
+                  <input type="radio" name="tema-color" value="verde" checked />
+                  <span class="theme-swatch theme-swatch-verde" aria-hidden="true"></span>
+                  <span class="theme-option-label">Verde</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="tema-color" value="rosado" />
+                  <span class="theme-swatch theme-swatch-rosado" aria-hidden="true"></span>
+                  <span class="theme-option-label">Rosado</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="tema-color" value="amarillo" />
+                  <span class="theme-swatch theme-swatch-amarillo" aria-hidden="true"></span>
+                  <span class="theme-option-label">Amarillo</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="tema-color" value="celeste" />
+                  <span class="theme-swatch theme-swatch-celeste" aria-hidden="true"></span>
+                  <span class="theme-option-label">Celeste</span>
+                </label>
+              </div>
+            </fieldset>
+
             <p class="auth-error" id="perfil-error" hidden></p>
             <p class="auth-ok" id="perfil-ok" hidden>Perfil actualizado</p>
             <div class="perfil-actions">
@@ -339,6 +379,7 @@
     </div>
   </dialog>
 
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
