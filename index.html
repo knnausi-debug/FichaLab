@@ -150,6 +150,14 @@
           <h2>Próximas citas</h2>
           <ul id="proximas-citas" class="list"></ul>
         </div>
+        <div class="inicio-cta panel">
+          <h2>Empezar</h2>
+          <p class="lede">Crea la ficha al ingresar al paciente. Luego agenda citas y escribe las notas de cada sesión.</p>
+          <div class="header-actions">
+            <button type="button" class="btn primary" id="btn-inicio-ficha">Nueva ficha</button>
+            <button type="button" class="btn ghost" id="btn-inicio-cita">Nueva cita</button>
+          </div>
+        </div>
       </section>
 
       <!-- FICHAS -->
@@ -157,11 +165,11 @@
         <header class="view-header row">
           <div>
             <h1>Fichas médicas</h1>
-            <p class="lede">Historial clínico de tus pacientes.</p>
+            <p class="lede">Ingreso del paciente. La evolución se registra en cada cita.</p>
           </div>
           <div class="header-actions">
-            <button class="btn primary" id="btn-exportar-fichas" type="button">Exportar Excel</button>
-            <button class="btn primary" id="btn-importar-fichas" type="button">Importar Excel</button>
+            <button class="btn ghost" id="btn-exportar-fichas" type="button">Exportar Excel</button>
+            <button class="btn ghost" id="btn-importar-fichas" type="button">Importar Excel</button>
             <input type="file" id="input-importar-fichas" accept=".xlsx,.xls,.csv,text/csv" hidden />
             <button class="btn primary" id="btn-nueva-ficha" type="button">Nueva ficha</button>
           </div>
@@ -172,12 +180,30 @@
         <div id="lista-fichas" class="fichas-grid"></div>
       </section>
 
+      <!-- PACIENTE / HISTORIAL -->
+      <section id="view-paciente" class="view">
+        <header class="view-header row">
+          <div>
+            <button type="button" class="btn ghost btn-back" id="btn-volver-fichas">← Volver a fichas</button>
+            <h1 id="paciente-titulo">Paciente</h1>
+            <p class="lede" id="paciente-sub">Ficha de ingreso e historial de atenciones</p>
+          </div>
+          <div class="header-actions">
+            <button type="button" class="btn primary" id="btn-paciente-cita">Nueva cita</button>
+            <button type="button" class="btn ghost" id="btn-paciente-pdf">Descargar PDF</button>
+            <button type="button" class="btn ghost" id="btn-paciente-editar">Editar ficha</button>
+            <button type="button" class="btn danger" id="btn-paciente-eliminar">Eliminar</button>
+          </div>
+        </header>
+        <div id="paciente-contenido" class="paciente-layout"></div>
+      </section>
+
       <!-- AGENDA -->
       <section id="view-agenda" class="view">
         <header class="view-header row">
           <div>
             <h1>Agenda</h1>
-            <p class="lede">Citas de evaluación y tratamiento.</p>
+            <p class="lede">Agenda citas y escribe las notas de cada sesión.</p>
           </div>
           <button class="btn primary" id="btn-nueva-cita" type="button">Nueva cita</button>
         </header>
@@ -229,7 +255,7 @@
 
             <fieldset class="theme-picker">
               <legend>Tema de color</legend>
-              <p class="theme-picker-hint">Misma intensidad y contraste; solo cambia el color base.</p>
+              <p class="theme-picker-hint">Se guarda en tu perfil y se aplica en todos tus dispositivos.</p>
               <div class="theme-options" role="radiogroup" aria-label="Tema de color">
                 <label class="theme-option">
                   <input type="radio" name="tema-color" value="verde" checked />
@@ -294,7 +320,7 @@
             <input type="email" id="ficha-email" placeholder="correo@ejemplo.cl" />
           </label>
         </div>
-        <label>Diagnóstico / motivo de consulta
+        <label>Diagnóstico de ingreso
           <input type="text" id="ficha-diagnostico" placeholder="Ej. Lumbalgia mecánica" />
         </label>
         <label>Evaluación inicial
@@ -303,9 +329,7 @@
         <label>Plan de tratamiento
           <textarea id="ficha-plan" rows="3" placeholder="Objetivos, técnicas, frecuencia…"></textarea>
         </label>
-        <label>Notas de evolución
-          <textarea id="ficha-notas" rows="3" placeholder="Seguimiento de sesiones…"></textarea>
-        </label>
+        <p class="form-hint">La evolución de cada atención se escribe en las citas (notas de la sesión).</p>
       </div>
       <footer class="modal-footer">
         <button type="button" class="btn ghost" data-close="modal-ficha">Cancelar</button>
@@ -352,8 +376,8 @@
             <option value="Cancelada">Cancelada</option>
           </select>
         </label>
-        <label>Observaciones
-          <textarea id="cita-obs" rows="2" placeholder="Indicaciones o recordatorios…"></textarea>
+        <label>Notas de la sesión
+          <textarea id="cita-obs" rows="3" placeholder="Evolución, hallazgos, indicaciones o lo que corresponda a esta atención…"></textarea>
         </label>
       </div>
       <footer class="modal-footer">
@@ -373,6 +397,7 @@
       <div class="modal-body" id="detalle-contenido"></div>
       <footer class="modal-footer">
         <button type="button" class="btn danger" id="btn-eliminar-ficha">Eliminar</button>
+        <button type="button" class="btn ghost" id="btn-detalle-pdf">Descargar PDF</button>
         <button type="button" class="btn ghost" data-close="modal-detalle">Cerrar</button>
         <button type="button" class="btn primary" id="btn-editar-ficha">Editar</button>
       </footer>
@@ -380,6 +405,7 @@
   </dialog>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>

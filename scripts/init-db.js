@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   profesion TEXT NOT NULL DEFAULT 'Kinesiólogo',
   telefono TEXT DEFAULT '',
   foto_url TEXT DEFAULT '',
+  tema TEXT NOT NULL DEFAULT 'verde',
   creado TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -62,6 +63,13 @@ async function ensureFichaEstadoColumn() {
   await pool.query(`
     ALTER TABLE fichas
     ADD COLUMN IF NOT EXISTS estado TEXT NOT NULL DEFAULT 'Pendiente'
+  `);
+}
+
+async function ensureTemaColumn() {
+  await pool.query(`
+    ALTER TABLE usuarios
+    ADD COLUMN IF NOT EXISTS tema TEXT NOT NULL DEFAULT 'verde'
   `);
 }
 
@@ -161,6 +169,7 @@ async function main() {
   await pool.query(SCHEMA);
   await ensureUsuarioIdColumn();
   await ensureFichaEstadoColumn();
+  await ensureTemaColumn();
   console.log("Tablas listas.");
 
   const usuarioId = await seedUsuario();

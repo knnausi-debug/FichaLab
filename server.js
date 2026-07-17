@@ -78,6 +78,9 @@ function mapUsuario(row) {
     profesion: row.profesion || "",
     telefono: row.telefono || "",
     fotoUrl: row.foto_url || "",
+    tema: ["verde", "rosado", "amarillo", "celeste"].includes(row.tema)
+      ? row.tema
+      : "verde",
     creado: row.creado,
   };
 }
@@ -198,7 +201,7 @@ app.post("/api/auth/login", async (req, res) => {
 app.get("/api/usuarios/:id", async (req, res) => {
   try {
     const { rows } = await query(
-      "SELECT id, nombre, email, profesion, telefono, foto_url, creado FROM usuarios WHERE id = $1",
+      "SELECT id, nombre, email, profesion, telefono, foto_url, tema, creado FROM usuarios WHERE id = $1",
       [req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: "Usuario no encontrado" });
@@ -216,39 +219,47 @@ app.put("/api/usuarios/:id", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "No puedes editar otro perfil" });
     }
 
-    const { nombre, email, profesion, telefono, password } = req.body;
+    const { nombre, email, profesion, telefono, password, tema } = req.body;
     if (!nombre?.trim() || !email?.trim()) {
       return res.status(400).json({ error: "Nombre y email son obligatorios" });
     }
+
+    const temaOk = ["verde", "rosado", "amarillo", "celeste"].includes(tema)
+      ? tema
+      : null;
 
     let rows;
     if (password && String(password).length >= 6) {
       const hash = await bcrypt.hash(String(password), 10);
       ({ rows } = await query(
         `UPDATE usuarios SET
-          nombre = $1, email = $2, profesion = $3, telefono = $4, password_hash = $5
-         WHERE id = $6
-         RETURNING id, nombre, email, profesion, telefono, foto_url, creado`,
+          nombre = $1, email = $2, profesion = $3, telefono = $4, password_hash = $5,
+          tema = COALESCE($6, tema)
+         WHERE id = $7
+         RETURNING id, nombre, email, profesion, telefono, foto_url, tema, creado`,
         [
           nombre.trim(),
           email.trim().toLowerCase(),
           (profesion || "").trim() || "Kinesiólogo",
           (telefono || "").trim(),
           hash,
+          temaOk,
           req.params.id,
         ]
       ));
     } else {
       ({ rows } = await query(
         `UPDATE usuarios SET
-          nombre = $1, email = $2, profesion = $3, telefono = $4
-         WHERE id = $5
-         RETURNING id, nombre, email, profesion, telefono, foto_url, creado`,
+          nombre = $1, email = $2, profesion = $3, telefono = $4,
+          tema = COALESCE($5, tema)
+         WHERE id = $6
+         RETURNING id, nombre, email, profesion, telefono, foto_url, tema, creado`,
         [
           nombre.trim(),
           email.trim().toLowerCase(),
           (profesion || "").trim() || "Kinesiólogo",
           (telefono || "").trim(),
+          temaOk,
           req.params.id,
         ]
       ));
@@ -279,7 +290,7 @@ app.post("/api/usuarios/:id/foto", requireAuth, upload.single("foto"), async (re
     const { rows } = await query(
       `UPDATE usuarios SET foto_url = $1
        WHERE id = $2
-       RETURNING id, nombre, email, profesion, telefono, foto_url, creado`,
+       RETURNING id, nombre, email, profesion, telefono, foto_url, tema, creado`,
       [fotoUrl, req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: "Usuario no encontrado" });
@@ -368,14 +379,13 @@ app.put("/api/fichas/:id", requireAuth, async (req, res) => {
       diagnostico = "",
       evaluacion = "",
       plan = "",
-      notas = "",
     } = req.body;
 
     const { rows } = await query(
       `UPDATE fichas SET
         nombre = $1, rut = $2, edad = $3, telefono = $4, email = $5,
-        diagnostico = $6, evaluacion = $7, plan = $8, notas = $9
-       WHERE id = $10 AND usuario_id = $11
+        diagnostico = $6, evaluacion = $7, plan = $8
+       WHERE id = $9 AND usuario_id = $10
        RETURNING *`,
       [
         nombre?.trim(),
@@ -386,7 +396,6 @@ app.put("/api/fichas/:id", requireAuth, async (req, res) => {
         diagnostico,
         evaluacion,
         plan,
-        notas,
         req.params.id,
         req.userId,
       ]
@@ -523,6 +532,20 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: "Error interno" });
 });
 
-app.listen(PORT, () => {
-  console.log(`FichaLab en http://localhost:${PORT}`);
-});
+async function ensureTemaColumn() {
+  await query(`
+    ALTER TABLE usuarios
+    ADD COLUMN IF NOT EXISTS tema TEXT NOT NULL DEFAULT 'verde'
+  `);
+}
+
+ensureTemaColumn()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`FichaLab en http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("No se pudo preparar la BD:", err.message);
+    process.exit(1);
+  });

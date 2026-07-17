@@ -32,8 +32,39 @@
     });
   }
 
+  function temaActual() {
+    const checked = $('input[name="tema-color"]:checked');
+    const v = checked?.value || localStorage.getItem(THEME_KEY) || "verde";
+    return THEMES.includes(v) ? v : "verde";
+  }
+
+  async function guardarTemaEnPerfil(tema) {
+    if (!usuario) return;
+    const t = THEMES.includes(tema) ? tema : "verde";
+    try {
+      const updated = await api(`/usuarios/${usuario.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          nombre: usuario.nombre,
+          email: usuario.email,
+          profesion: usuario.profesion || "",
+          telefono: usuario.telefono || "",
+          tema: t,
+        }),
+      });
+      usuario = { ...usuario, ...updated, tema: t };
+      localStorage.setItem(SESSION_KEY, usuario.id);
+    } catch {
+      /* el color ya se ve en este dispositivo; se reintentará al guardar perfil */
+    }
+  }
+
   function initTheme() {
     applyTheme(localStorage.getItem(THEME_KEY) || "verde");
+  }
+
+  function syncThemeFromUsuario(user) {
+    if (user?.tema) applyTheme(user.tema);
   }
 
   let usuario = null;
@@ -201,6 +232,7 @@
     $("#perfil-email").value = usuario.email || "";
     $("#perfil-telefono").value = usuario.telefono || "";
     $("#perfil-password").value = "";
+    syncThemeFromUsuario(usuario);
   }
 
   function showAuth() {
@@ -217,6 +249,7 @@
   function guardarSesion(user) {
     usuario = user;
     localStorage.setItem(SESSION_KEY, user.id);
+    syncThemeFromUsuario(user);
   }
 
   function cerrarSesion() {
@@ -331,6 +364,7 @@
       profesion: $("#perfil-profesion").value.trim(),
       email: $("#perfil-email").value.trim(),
       telefono: $("#perfil-telefono").value.trim(),
+      tema: temaActual(),
     };
     const pass = $("#perfil-password").value;
     if (pass) payload.password = pass;
@@ -381,12 +415,25 @@
   });
 
   // —— Navigation ——
+  function showView(viewName, { activateNav = true } = {}) {
+    $$(".view").forEach((v) => v.classList.remove("active"));
+    const view = $(`#view-${viewName}`);
+    if (view) view.classList.add("active");
+
+    if (activateNav) {
+      $$(".nav-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.view === viewName);
+      });
+    } else {
+      $$(".nav-btn").forEach((b) => b.classList.remove("active"));
+      const fichasNav = $('.nav-btn[data-view="fichas"]');
+      if (fichasNav) fichasNav.classList.add("active");
+    }
+  }
+
   $$(".nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      $$(".nav-btn").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      $$(".view").forEach((v) => v.classList.remove("active"));
-      $(`#view-${btn.dataset.view}`).classList.add("active");
+      showView(btn.dataset.view, { activateNav: true });
       paint();
     });
   });
@@ -431,7 +478,7 @@
       <button type="button" class="ficha-card" data-id="${f.id}">
         <h3>${escapeHtml(f.nombre)}</h3>
         <p class="ficha-meta">${escapeHtml(f.rut)}${f.edad ? ` · ${f.edad} años` : ""}</p>
-        <p class="ficha-diag">${escapeHtml(f.diagnostico || "Sin diagnóstico registrado")}</p>
+        <p class="ficha-diag">${escapeHtml(f.diagnostico || "Sin diagnóstico de ingreso")}</p>
         <span class="ficha-tag">Ver ficha</span>
       </button>`
       )
@@ -442,23 +489,274 @@
     });
   }
 
-  function mostrarDetalle(id) {
+  function formatFechaHoraIngreso(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString("es-CL", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function renderHistorialPaciente(ficha) {
+    const profesional = usuario
+      ? `${escapeHtml(usuario.nombre)} · ${escapeHtml(usuario.profesion || "Profesional")}`
+      : "—";
+
+    const historialCitas = sortCitas(
+      citas.filter((c) => c.pacienteId === ficha.id)
+    ).reverse();
+
+    const citasHtml =
+      historialCitas.length === 0
+        ? `<li class="historial-empty">Aún no hay atenciones. Usa <strong>Nueva cita</strong> para registrar la primera sesión.</li>`
+        : historialCitas
+            .map(
+              (c) => `
+        <li class="historial-item">
+          <div class="historial-dot" aria-hidden="true"></div>
+          <div class="historial-body">
+            <div class="historial-top">
+              <strong>${escapeHtml(formatFecha(c.fecha))} · ${escapeHtml(c.hora)}</strong>
+              <span class="badge ${escapeHtml(c.estado)}">${escapeHtml(c.estado)}</span>
+            </div>
+            <p class="historial-meta">${escapeHtml(c.tipo)}${c.obs ? ` · ${escapeHtml(c.obs)}` : " · Sin notas de la sesión"}</p>
+          </div>
+        </li>`
+            )
+            .join("");
+
+    return `
+      <section class="historial-panel panel" aria-label="Historial con el profesional">
+        <div class="historial-head">
+          <h3>Historial clínico</h3>
+          <p class="historial-head-hint">Cada cita suma una entrada con las notas de esa sesión.</p>
+        </div>
+        <dl class="detalle-grid historial-resumen">
+          <div class="detalle-block">
+            <dt>Fecha de ingreso</dt>
+            <dd>${escapeHtml(formatFechaHoraIngreso(ficha.creada))}</dd>
+          </div>
+          <div class="detalle-block">
+            <dt>Profesional a cargo</dt>
+            <dd>${profesional}</dd>
+          </div>
+          <div class="detalle-block">
+            <dt>Atenciones registradas</dt>
+            <dd>${historialCitas.length}</dd>
+          </div>
+        </dl>
+        <h4 class="historial-sub">Línea de tiempo</h4>
+        <ol class="historial-timeline">${citasHtml}</ol>
+      </section>`;
+  }
+
+  function renderResumenPaciente(ficha) {
+    return `
+      <section class="panel paciente-resumen">
+        <h3>Datos clínicos</h3>
+        <dl class="detalle-grid">
+          <div class="detalle-block"><dt>RUT / ID</dt><dd>${escapeHtml(ficha.rut)}</dd></div>
+          <div class="detalle-block"><dt>Edad</dt><dd>${ficha.edad ?? "—"}</dd></div>
+          <div class="detalle-block"><dt>Teléfono</dt><dd>${escapeHtml(ficha.telefono || "—")}</dd></div>
+          <div class="detalle-block"><dt>Email</dt><dd>${escapeHtml(ficha.email || "—")}</dd></div>
+          <div class="detalle-block"><dt>Diagnóstico de ingreso</dt><dd>${escapeHtml(ficha.diagnostico || "—")}</dd></div>
+          <div class="detalle-block"><dt>Evaluación inicial</dt><dd>${escapeHtml(ficha.evaluacion || "—")}</dd></div>
+          <div class="detalle-block"><dt>Plan de tratamiento</dt><dd>${escapeHtml(ficha.plan || "—")}</dd></div>
+        </dl>
+      </section>`;
+  }
+
+  function abrirVistaPaciente(id) {
     const f = getFicha(id);
     if (!f) return;
     detalleFichaId = id;
-    $("#detalle-nombre").textContent = f.nombre;
-    $("#detalle-contenido").innerHTML = `
-      <dl class="detalle-grid">
-        <div class="detalle-block"><dt>RUT / ID</dt><dd>${escapeHtml(f.rut)}</dd></div>
-        <div class="detalle-block"><dt>Edad</dt><dd>${f.edad ?? "—"}</dd></div>
-        <div class="detalle-block"><dt>Teléfono</dt><dd>${escapeHtml(f.telefono || "—")}</dd></div>
-        <div class="detalle-block"><dt>Email</dt><dd>${escapeHtml(f.email || "—")}</dd></div>
-        <div class="detalle-block"><dt>Diagnóstico</dt><dd>${escapeHtml(f.diagnostico || "—")}</dd></div>
-        <div class="detalle-block"><dt>Evaluación inicial</dt><dd>${escapeHtml(f.evaluacion || "—")}</dd></div>
-        <div class="detalle-block"><dt>Plan de tratamiento</dt><dd>${escapeHtml(f.plan || "—")}</dd></div>
-        <div class="detalle-block"><dt>Notas de evolución</dt><dd>${escapeHtml(f.notas || "—")}</dd></div>
-      </dl>`;
-    openModal("modal-detalle");
+    $("#paciente-titulo").textContent = f.nombre;
+    $("#paciente-sub").textContent = `${f.rut}${f.diagnostico ? ` · ${f.diagnostico}` : ""}`;
+    $("#paciente-contenido").innerHTML = `
+      <div class="paciente-col">
+        ${renderResumenPaciente(f)}
+      </div>
+      <div class="paciente-col paciente-col-historial">
+        ${renderHistorialPaciente(f)}
+      </div>`;
+    showView("paciente", { activateNav: false });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function mostrarDetalle(id) {
+    abrirVistaPaciente(id);
+  }
+
+  function nombreArchivoPaciente(ficha) {
+    const base =
+      String(ficha.nombre || "paciente")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase() || "paciente";
+    const stamp = new Date().toISOString().slice(0, 10);
+    return `ficha-${base}-${stamp}.pdf`;
+  }
+
+  function pdfCampo(doc, label, value, x, y, maxW) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(80, 90, 88);
+    doc.text(label, x, y);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(30, 36, 34);
+    const lines = doc.splitTextToSize(String(value || "—"), maxW);
+    doc.text(lines, x, y + 5);
+    return y + 5 + lines.length * 5 + 4;
+  }
+
+  function pdfAsegurarEspacio(doc, y, need) {
+    const pageH = doc.internal.pageSize.getHeight();
+    if (y + need > pageH - 16) {
+      doc.addPage();
+      return 18;
+    }
+    return y;
+  }
+
+  function descargarPdfPaciente(id) {
+    const ficha = getFicha(id || detalleFichaId);
+    if (!ficha) return;
+
+    if (typeof window.jspdf === "undefined" || !window.jspdf.jsPDF) {
+      alert("No se pudo cargar la librería de PDF. Revisa tu conexión.");
+      return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const margin = 18;
+    const maxW = doc.internal.pageSize.getWidth() - margin * 2;
+    let y = 18;
+
+    const profesional = usuario
+      ? `${usuario.nombre}${usuario.profesion ? ` · ${usuario.profesion}` : ""}`
+      : "—";
+    const historialCitas = sortCitas(
+      citas.filter((c) => c.pacienteId === ficha.id)
+    ).reverse();
+    const emitido = new Date().toLocaleString("es-CL", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(31, 122, 101);
+    doc.text("FichaLab", margin, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 110, 108);
+    doc.text("Ficha clínica e historial de atenciones", margin, y);
+    y += 5;
+    doc.text(`Emitido: ${emitido}`, margin, y);
+    y += 8;
+
+    doc.setDrawColor(210, 220, 216);
+    doc.line(margin, y, margin + maxW, y);
+    y += 10;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(30, 36, 34);
+    doc.text(ficha.nombre || "Paciente", margin, y);
+    y += 8;
+
+    y = pdfCampo(doc, "RUT / ID", ficha.rut, margin, y, maxW);
+    y = pdfCampo(doc, "Edad", ficha.edad ?? "—", margin, y, maxW);
+    y = pdfCampo(doc, "Teléfono", ficha.telefono || "—", margin, y, maxW);
+    y = pdfCampo(doc, "Email", ficha.email || "—", margin, y, maxW);
+    y = pdfCampo(doc, "Profesional a cargo", profesional, margin, y, maxW);
+    y = pdfCampo(
+      doc,
+      "Fecha de ingreso",
+      formatFechaHoraIngreso(ficha.creada),
+      margin,
+      y,
+      maxW
+    );
+
+    y = pdfAsegurarEspacio(doc, y, 20);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(31, 122, 101);
+    doc.text("Datos clínicos de ingreso", margin, y);
+    y += 8;
+
+    y = pdfCampo(doc, "Diagnóstico de ingreso", ficha.diagnostico || "—", margin, y, maxW);
+    y = pdfCampo(doc, "Evaluación inicial", ficha.evaluacion || "—", margin, y, maxW);
+    y = pdfCampo(doc, "Plan de tratamiento", ficha.plan || "—", margin, y, maxW);
+
+    y = pdfAsegurarEspacio(doc, y, 24);
+    doc.setDrawColor(210, 220, 216);
+    doc.line(margin, y, margin + maxW, y);
+    y += 10;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(31, 122, 101);
+    doc.text(`Historial clínico (${historialCitas.length})`, margin, y);
+    y += 8;
+
+    if (!historialCitas.length) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(90, 98, 96);
+      doc.text("Aún no hay atenciones registradas.", margin, y);
+    } else {
+      historialCitas.forEach((c, i) => {
+        const notas = c.obs || "Sin notas de la sesión";
+        const titulo = `${formatFecha(c.fecha)} · ${c.hora} — ${c.tipo} (${c.estado})`;
+        const noteLines = doc.splitTextToSize(notas, maxW - 2);
+        const blockH = 10 + noteLines.length * 5;
+
+        y = pdfAsegurarEspacio(doc, y, blockH + 6);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(30, 36, 34);
+        doc.text(`${i + 1}. ${titulo}`, margin, y);
+        y += 5;
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(70, 78, 76);
+        doc.text(noteLines, margin, y);
+        y += noteLines.length * 5 + 6;
+      });
+    }
+
+    const pages = doc.getNumberOfPages();
+    for (let p = 1; p <= pages; p++) {
+      doc.setPage(p);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(140, 148, 146);
+      doc.text(
+        `FichaLab · ${ficha.nombre || "Paciente"} · pág. ${p}/${pages}`,
+        margin,
+        doc.internal.pageSize.getHeight() - 8
+      );
+    }
+
+    doc.save(nombreArchivoPaciente(ficha));
   }
 
   function resetFormFicha() {
@@ -477,7 +775,6 @@
     $("#ficha-diagnostico").value = f.diagnostico || "";
     $("#ficha-evaluacion").value = f.evaluacion || "";
     $("#ficha-plan").value = f.plan || "";
-    $("#ficha-notas").value = f.notas || "";
     $("#modal-ficha-titulo").textContent = "Editar ficha";
   }
 
@@ -536,10 +833,9 @@
       Edad: f.edad ?? "",
       Teléfono: f.telefono || "",
       Email: f.email || "",
-      Diagnóstico: f.diagnostico || "",
+      "Diagnóstico de ingreso": f.diagnostico || "",
       Evaluación: f.evaluacion || "",
       Plan: f.plan || "",
-      Notas: f.notas || "",
       Creada: f.creada ? new Date(f.creada).toLocaleString("es-CL") : "",
     }));
   }
@@ -567,7 +863,6 @@
       { wch: 32 },
       { wch: 36 },
       { wch: 32 },
-      { wch: 28 },
       { wch: 20 },
     ];
 
@@ -594,10 +889,9 @@
       edad: get("edad"),
       telefono: get("teléfono", "telefono"),
       email: get("email"),
-      diagnostico: get("diagnóstico", "diagnostico"),
+      diagnostico: get("diagnóstico de ingreso", "diagnóstico", "diagnostico"),
       evaluacion: get("evaluación", "evaluacion"),
       plan: get("plan"),
-      notas: get("notas"),
     };
   }
 
@@ -698,7 +992,6 @@
             diagnostico: fila.diagnostico || "",
             evaluacion: fila.evaluacion || "",
             plan: fila.plan || "",
-            notas: fila.notas || "",
           }),
         });
         existentes.add(rutKey);
@@ -746,6 +1039,44 @@
     openModal("modal-ficha");
   });
 
+  $("#btn-paciente-editar").addEventListener("click", () => {
+    const f = getFicha(detalleFichaId);
+    if (!f) return;
+    fillFormFicha(f);
+    openModal("modal-ficha");
+  });
+
+  $("#btn-paciente-pdf").addEventListener("click", () => {
+    descargarPdfPaciente(detalleFichaId);
+  });
+
+  $("#btn-paciente-cita").addEventListener("click", () => {
+    if (!detalleFichaId) return;
+    abrirNuevaCita(detalleFichaId);
+  });
+
+  $("#btn-detalle-pdf").addEventListener("click", () => {
+    descargarPdfPaciente(detalleFichaId);
+  });
+
+  $("#btn-volver-fichas").addEventListener("click", () => {
+    showView("fichas", { activateNav: true });
+    paint();
+  });
+
+  $("#btn-paciente-eliminar").addEventListener("click", async () => {
+    if (!detalleFichaId) return;
+    if (!confirm("¿Eliminar esta ficha y sus citas asociadas?")) return;
+    try {
+      await api(`/fichas/${detalleFichaId}`, { method: "DELETE" });
+      detalleFichaId = null;
+      showView("fichas", { activateNav: true });
+      await refresh();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
   $("#btn-eliminar-ficha").addEventListener("click", async () => {
     if (!detalleFichaId) return;
     if (!confirm("¿Eliminar esta ficha y sus citas asociadas?")) return;
@@ -770,7 +1101,6 @@
       diagnostico: $("#ficha-diagnostico").value.trim(),
       evaluacion: $("#ficha-evaluacion").value.trim(),
       plan: $("#ficha-plan").value.trim(),
-      notas: $("#ficha-notas").value.trim(),
     };
 
     try {
@@ -778,6 +1108,9 @@
       else await api("/fichas", { method: "POST", body: JSON.stringify(data) });
       closeModal("modal-ficha");
       await refresh();
+      if (id && $("#view-paciente")?.classList.contains("active")) {
+        abrirVistaPaciente(id);
+      }
     } catch (err) {
       alert(err.message);
     }
@@ -874,6 +1207,16 @@
     fillSelectPacientes();
   }
 
+  function abrirNuevaCita(pacienteId = "") {
+    if (fichas.length === 0) {
+      alert("Primero crea una ficha de paciente.");
+      return;
+    }
+    resetFormCita();
+    if (pacienteId) fillSelectPacientes(pacienteId);
+    openModal("modal-cita");
+  }
+
   function editarCita(id) {
     const c = citas.find((x) => x.id === id);
     if (!c) return;
@@ -888,14 +1231,15 @@
     openModal("modal-cita");
   }
 
-  $("#btn-nueva-cita").addEventListener("click", () => {
-    if (fichas.length === 0) {
-      alert("Primero crea una ficha de paciente.");
-      return;
-    }
-    resetFormCita();
-    openModal("modal-cita");
+  $("#btn-nueva-cita").addEventListener("click", () => abrirNuevaCita());
+
+  $("#btn-inicio-ficha")?.addEventListener("click", () => {
+    showView("fichas", { activateNav: true });
+    resetFormFicha();
+    openModal("modal-ficha");
   });
+
+  $("#btn-inicio-cita")?.addEventListener("click", () => abrirNuevaCita());
 
   $("#form-cita").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -914,6 +1258,13 @@
       else await api("/citas", { method: "POST", body: JSON.stringify(data) });
       closeModal("modal-cita");
       await refresh();
+      if (
+        $("#view-paciente")?.classList.contains("active") &&
+        detalleFichaId &&
+        data.pacienteId === detalleFichaId
+      ) {
+        abrirVistaPaciente(detalleFichaId);
+      }
     } catch (err) {
       alert(err.message);
     }
@@ -1040,7 +1391,9 @@
 
   $$('input[name="tema-color"]').forEach((input) => {
     input.addEventListener("change", () => {
-      if (input.checked) applyTheme(input.value);
+      if (!input.checked) return;
+      applyTheme(input.value);
+      guardarTemaEnPerfil(input.value);
     });
   });
 
