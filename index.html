@@ -156,12 +156,6 @@
         </header>
         <div class="toolbar">
           <input type="search" id="buscar-ficha" placeholder="Buscar por nombre o RUT…" autocomplete="off" />
-          <select id="filtro-estado-ficha" aria-label="Filtrar por estado">
-            <option value="">Todos los estados</option>
-            <option value="Pendiente">Pendientes</option>
-            <option value="Confirmada">Confirmadas</option>
-            <option value="Cancelada">Canceladas</option>
-          </select>
         </div>
         <div id="lista-fichas" class="fichas-grid"></div>
       </section>
@@ -339,9 +333,7 @@
       <div class="modal-body" id="detalle-contenido"></div>
       <footer class="modal-footer">
         <button type="button" class="btn danger" id="btn-eliminar-ficha">Eliminar</button>
-        <button type="button" class="btn ghost" id="btn-cancelar-ficha">Cancelar ficha</button>
         <button type="button" class="btn ghost" data-close="modal-detalle">Cerrar</button>
-        <button type="button" class="btn primary" id="btn-confirmar-ficha">Confirmar</button>
         <button type="button" class="btn primary" id="btn-editar-ficha">Editar</button>
       </footer>
     </div>

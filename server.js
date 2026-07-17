@@ -55,7 +55,6 @@ function mapFicha(row) {
     evaluacion: row.evaluacion || "",
     plan: row.plan || "",
     notas: row.notas || "",
-    estado: row.estado || "Pendiente",
     creada: row.creada,
   };
 }
@@ -354,8 +353,8 @@ app.post("/api/fichas", requireAuth, async (req, res) => {
 
     const { rows } = await query(
       `INSERT INTO fichas
-        (usuario_id, nombre, rut, edad, telefono, email, diagnostico, evaluacion, plan, notas, estado)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'Pendiente')
+        (usuario_id, nombre, rut, edad, telefono, email, diagnostico, evaluacion, plan, notas)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING *`,
       [
         req.userId,
@@ -388,18 +387,13 @@ app.put("/api/fichas/:id", requireAuth, async (req, res) => {
       evaluacion = "",
       plan = "",
       notas = "",
-      estado,
     } = req.body;
-
-    const estadosOk = ["Pendiente", "Confirmada", "Cancelada"];
-    const estadoFinal = estadosOk.includes(estado) ? estado : undefined;
 
     const { rows } = await query(
       `UPDATE fichas SET
         nombre = $1, rut = $2, edad = $3, telefono = $4, email = $5,
-        diagnostico = $6, evaluacion = $7, plan = $8, notas = $9,
-        estado = COALESCE($10, estado)
-       WHERE id = $11 AND usuario_id = $12
+        diagnostico = $6, evaluacion = $7, plan = $8, notas = $9
+       WHERE id = $10 AND usuario_id = $11
        RETURNING *`,
       [
         nombre?.trim(),
@@ -411,31 +405,9 @@ app.put("/api/fichas/:id", requireAuth, async (req, res) => {
         evaluacion,
         plan,
         notas,
-        estadoFinal ?? null,
         req.params.id,
         req.userId,
       ]
-    );
-    if (!rows[0]) return res.status(404).json({ error: "Ficha no encontrada" });
-    res.json(mapFicha(rows[0]));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.patch("/api/fichas/:id/estado", requireAuth, async (req, res) => {
-  try {
-    const { estado } = req.body;
-    const estadosOk = ["Pendiente", "Confirmada", "Cancelada"];
-    if (!estadosOk.includes(estado)) {
-      return res.status(400).json({ error: "Estado inválido" });
-    }
-
-    const { rows } = await query(
-      `UPDATE fichas SET estado = $1
-       WHERE id = $2 AND usuario_id = $3
-       RETURNING *`,
-      [estado, req.params.id, req.userId]
     );
     if (!rows[0]) return res.status(404).json({ error: "Ficha no encontrada" });
     res.json(mapFicha(rows[0]));

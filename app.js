@@ -342,39 +342,32 @@
     return fichas.find((f) => f.id === id);
   }
 
-  function renderFichas(filtro = "", estadoFiltro = "") {
+  function renderFichas(filtro = "") {
     const q = filtro.trim().toLowerCase();
-    const estadoSel = estadoFiltro || $("#filtro-estado-ficha")?.value || "";
-    const list = fichas.filter((f) => {
-      const matchQ =
+    const list = fichas.filter(
+      (f) =>
         !q ||
         f.nombre.toLowerCase().includes(q) ||
         f.rut.toLowerCase().includes(q) ||
-        (f.diagnostico || "").toLowerCase().includes(q);
-      const matchE = !estadoSel || (f.estado || "Pendiente") === estadoSel;
-      return matchQ && matchE;
-    });
+        (f.diagnostico || "").toLowerCase().includes(q)
+    );
 
     const container = $("#lista-fichas");
     if (list.length === 0) {
-      container.innerHTML = `<p class="empty-msg">No hay fichas${q || estadoSel ? " con ese criterio" : ""}. Crea la primera.</p>`;
+      container.innerHTML = `<p class="empty-msg">No hay fichas${q ? " con ese criterio" : ""}. Crea la primera.</p>`;
       return;
     }
 
     container.innerHTML = list
-      .map((f) => {
-        const estado = f.estado || "Pendiente";
-        return `
-      <button type="button" class="ficha-card estado-${escapeHtml(estado)}" data-id="${f.id}">
-        <div class="ficha-card-top">
-          <h3>${escapeHtml(f.nombre)}</h3>
-          <span class="badge ${escapeHtml(estado)}">${escapeHtml(estado)}</span>
-        </div>
+      .map(
+        (f) => `
+      <button type="button" class="ficha-card" data-id="${f.id}">
+        <h3>${escapeHtml(f.nombre)}</h3>
         <p class="ficha-meta">${escapeHtml(f.rut)}${f.edad ? ` · ${f.edad} años` : ""}</p>
         <p class="ficha-diag">${escapeHtml(f.diagnostico || "Sin diagnóstico registrado")}</p>
         <span class="ficha-tag">Ver ficha</span>
-      </button>`;
-      })
+      </button>`
+      )
       .join("");
 
     $$(".ficha-card", container).forEach((card) => {
@@ -386,11 +379,9 @@
     const f = getFicha(id);
     if (!f) return;
     detalleFichaId = id;
-    const estado = f.estado || "Pendiente";
     $("#detalle-nombre").textContent = f.nombre;
     $("#detalle-contenido").innerHTML = `
       <dl class="detalle-grid">
-        <div class="detalle-block"><dt>Estado</dt><dd><span class="badge ${escapeHtml(estado)}">${escapeHtml(estado)}</span></dd></div>
         <div class="detalle-block"><dt>RUT / ID</dt><dd>${escapeHtml(f.rut)}</dd></div>
         <div class="detalle-block"><dt>Edad</dt><dd>${f.edad ?? "—"}</dd></div>
         <div class="detalle-block"><dt>Teléfono</dt><dd>${escapeHtml(f.telefono || "—")}</dd></div>
@@ -400,33 +391,7 @@
         <div class="detalle-block"><dt>Plan de tratamiento</dt><dd>${escapeHtml(f.plan || "—")}</dd></div>
         <div class="detalle-block"><dt>Notas de evolución</dt><dd>${escapeHtml(f.notas || "—")}</dd></div>
       </dl>`;
-
-    const btnConfirmar = $("#btn-confirmar-ficha");
-    const btnCancelar = $("#btn-cancelar-ficha");
-    btnConfirmar.hidden = estado === "Confirmada";
-    btnCancelar.hidden = estado === "Cancelada";
-    btnConfirmar.textContent = estado === "Cancelada" ? "Reactivar / Confirmar" : "Confirmar";
-
     openModal("modal-detalle");
-  }
-
-  async function cambiarEstadoFicha(estado) {
-    if (!detalleFichaId) return;
-    const msg =
-      estado === "Confirmada"
-        ? "¿Confirmar esta ficha?"
-        : "¿Cancelar esta ficha?";
-    if (!confirm(msg)) return;
-    try {
-      await api(`/fichas/${detalleFichaId}/estado`, {
-        method: "PATCH",
-        body: JSON.stringify({ estado }),
-      });
-      closeModal("modal-detalle");
-      await refresh();
-    } catch (err) {
-      alert(err.message);
-    }
   }
 
   function resetFormFicha() {
@@ -461,9 +426,6 @@
     fillFormFicha(f);
     openModal("modal-ficha");
   });
-
-  $("#btn-confirmar-ficha").addEventListener("click", () => cambiarEstadoFicha("Confirmada"));
-  $("#btn-cancelar-ficha").addEventListener("click", () => cambiarEstadoFicha("Cancelada"));
 
   $("#btn-eliminar-ficha").addEventListener("click", async () => {
     if (!detalleFichaId) return;
@@ -504,10 +466,6 @@
 
   $("#buscar-ficha").addEventListener("input", (e) => {
     renderFichas(e.target.value);
-  });
-
-  $("#filtro-estado-ficha").addEventListener("change", () => {
-    renderFichas($("#buscar-ficha").value);
   });
 
   // —— Agenda ——

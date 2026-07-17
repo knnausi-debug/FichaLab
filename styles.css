@@ -616,26 +616,6 @@ textarea {
 .badge.Cancelada { background: #fde8e8; color: var(--danger); }
 .badge.Pendiente { background: #fff4e5; color: #b45309; }
 
-.ficha-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.25rem;
-}
-
-.ficha-card-top h3 {
-  margin-bottom: 0;
-}
-
-.ficha-card.estado-Cancelada {
-  opacity: 0.72;
-}
-
-.ficha-card.estado-Confirmada {
-  border-color: rgba(31, 122, 101, 0.35);
-}
-
 /* Modal */
 .modal {
   border: none;
